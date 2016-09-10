@@ -11,10 +11,11 @@ var ip, ip_net, net_err = net.ParseCIDR("192.168.1.2/24")
 
 func TestIPNetwork(t *testing.T) {
   // Create a new channel to read from
+  expected_ip := "192.168.1.0"
   c := IPNetwork(ip_net)
   a := <-c
-  if !a.Equal(net.ParseIP("192.168.1.0")) {
-    t.Error("Does not match")
+  if !a.Equal(net.ParseIP(expected_ip)) {
+    t.Errorf("Expected to receive IP %s, but got %s", expected_ip, a)
   }
 }
 
