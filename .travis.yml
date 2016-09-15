@@ -2,6 +2,8 @@ language: go
 go:
   - 1.6
   - 1.7
+install:
+  - go get github.com/stretchr/testify/assert  # For testing
 notifications:
   email:
     on_success: never
