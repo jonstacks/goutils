@@ -8,13 +8,14 @@ import (
 )
 
 var testName = "glacier"
+var zero = int64(0)
 
 func TestNewStorageStat(t *testing.T) {
 	s := NewStorageStat(testName)
 
 	assert.Equal(t, testName, s.Name, "Storage Stat should initialize name")
-	assert.Equal(t, 0, s.Count, "Storage Stat's initial Count should be 0")
-	assert.Equal(t, 0, s.Size, "Storage Stat's initial Size should be 0")
+	assert.Equal(t, zero, s.Count, "Storage Stat's initial Count should be 0")
+	assert.Equal(t, zero, s.Size, "Storage Stat's initial Size should be 0")
 }
 
 func TestAddObjectStorageStat(t *testing.T) {
@@ -24,7 +25,7 @@ func TestAddObjectStorageStat(t *testing.T) {
 		s.AddObject(int64(i) * int64(i))
 	}
 
-	assert.Equal(t, 30, s.Size, "Storage Stat should add objects size correctly")
+	assert.Equal(t, int64(30), s.Size, "Storage Stat should add objects size correctly")
 }
 
 func ExampleStorageStat() {
