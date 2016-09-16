@@ -3,7 +3,8 @@ go:
   - 1.6
   - 1.7
 install:
-  - go get github.com/stretchr/testify/assert  # For testing
+  - go get github.com/aws/aws-sdk-go/service/s3   # Working with S3 objects
+  - go get github.com/stretchr/testify/assert     # For testing
 notifications:
   email:
     on_success: never
