@@ -1,4 +1,4 @@
-package awsutils
+package s3utils
 
 import (
 	"fmt"
