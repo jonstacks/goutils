@@ -64,6 +64,12 @@ func (sm *StorageStatsManager) Count() int64 {
 	return count
 }
 
+// AverageFileSize returns the average file size, in bytes, across all storage
+// stats
+func (sm *StorageStatsManager) AverageFileSize() float64 {
+	return float64(sm.Size()) / float64(sm.Count())
+}
+
 func (sm *StorageStatsManager) String() string {
 	stats := make([]string, 0, len(sm.Stats))
 
