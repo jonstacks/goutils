@@ -22,6 +22,12 @@ func (s *StorageStat) AddObject(size int64) {
 	s.Size += size
 }
 
+// AverageFileSize returns the average size, in bytes, of the files the
+// StorageStat counts
+func (s *StorageStat) AverageFileSize() float64 {
+	return float64(s.Size) / float64(s.Count)
+}
+
 func (s *StorageStat) String() string {
 	return fmt.Sprintf("(count: %d, size: %d)", s.Count, s.Size)
 }

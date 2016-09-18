@@ -26,12 +26,24 @@ func TestAddObjectStorageStat(t *testing.T) {
 	assert.Equal(t, int64(30), s.Size, "Storage Stat should add objects size correctly")
 }
 
+func TestAverageFileSize(t *testing.T) {
+	s := NewStorageStat()
+
+	for i := 1; i < 5; i++ {
+		s.AddObject(int64(i) * int64(i))
+	}
+
+	assert.Equal(t, float64(7.5), s.AverageFileSize(), "Storage Stats calculates average file size")
+}
+
 func ExampleStorageStat() {
 	s := NewStorageStat()
 	s.AddObject(345)
 	s.AddObject(23)
 	s.AddObject(5678)
 	fmt.Println(s)
+	fmt.Printf("%.2f", s.AverageFileSize())
 	// Output:
 	// (count: 3, size: 6046)
+	// 2015.33
 }
