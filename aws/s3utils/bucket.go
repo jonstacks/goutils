@@ -127,18 +127,165 @@ func (b *Bucket) AddLifecycleRule(rule *s3.LifecycleRule) error {
 	}
 
 	_, putErr := b.client.PutBucketLifecycleConfiguration(putInput)
-	if putErr != nil {
-		return putErr
+	return putErr
+}
+
+// IsReplicated returns whether or not the replication is enabled for the
+// bucket. Unfortunately, since this relies on the ReplicationConfig method
+// and the underlying service client returns an error if the config doesn't
+// exist, we have to rely on an error meaning that replication is not
+// configured.
+func (b *Bucket) IsReplicated() bool {
+	if _, err := b.ReplicationConfig(); err != nil {
+		return false
+	}
+	return true
+}
+
+// Permissions returns a list of permissions on the bucket.
+func (b *Bucket) Permissions() (*s3.GetBucketAclOutput, error) {
+	input := &s3.GetBucketAclInput{Bucket: aws.String(b.Name)}
+	resp, err := b.client.GetBucketAcl(input)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// CopyPermissionsFrom copies all ACLs from the source bucket to this bucket,
+// overwriting this buckets ACLs if present.
+func (b *Bucket) CopyPermissionsFrom(src *Bucket) error {
+	// Get the current Permissions from the current
+	input := &s3.GetBucketAclInput{Bucket: aws.String(src.Name)}
+	resp, err := src.client.GetBucketAcl(input)
+	if err != nil {
+		return err
 	}
 
+	// Set the default type for the grants grantee. Not sure why this doesn't
+	// come back as part of the original request
+	for i := range resp.Grants {
+		switch {
+		case resp.Grants[i].Grantee.ID != nil:
+			// assume we are dealing with a cannonical User
+			resp.Grants[i].Grantee.Type = aws.String(s3.TypeCanonicalUser)
+		case resp.Grants[i].Grantee.URI != nil:
+			resp.Grants[i].Grantee.Type = aws.String(s3.TypeGroup)
+		}
+
+		if err = resp.Grants[i].Grantee.Validate(); err != nil {
+			return err
+		}
+	}
+
+	// Now copy those permissions to our bucket
+	putInput := &s3.PutBucketAclInput{
+		Bucket: aws.String(b.Name),
+		AccessControlPolicy: &s3.AccessControlPolicy{
+			Grants: resp.Grants,
+			Owner:  resp.Owner,
+		},
+	}
+	_, err = b.client.PutBucketAcl(putInput)
+	if err != nil {
+		return err
+	}
 	return nil
+}
+
+// ProfileStorage iterates over the objects in the bucket and adds their stats
+// to the StorageStatsManager.
+func (b *Bucket) ProfileStorage() error {
+	params := &s3.ListObjectsV2Input{
+		Bucket:  aws.String(b.Name), // Required
+		MaxKeys: aws.Int64(1000),
+	}
+	err := params.Validate()
+	if err != nil {
+		return err
+	}
+
+	b.client.ListObjectsV2Pages(params,
+		func(page *s3.ListObjectsV2Output, lastPage bool) bool {
+			for _, c := range page.Contents {
+				b.StatsManager.AddObject(c)
+			}
+			return !lastPage
+		},
+	)
+	return nil
+}
+
+// // Replicate adds configuration to replicate this bucket to the destination
+// // Bucket.
+// func (b *Bucket) Replicate(dest *Bucket, storageClass string) error {
+// 	// The desired Rule we will be creating:
+// 	rule := &s3.ReplicationRule{
+// 		ID:     aws.String(b.Name),
+// 		Prefix: aws.String("/"),
+// 		Status: aws.String(s3.ReplicationRuleStatusEnabled),
+// 		Destination: &s3.Destination{
+// 			Bucket:       aws.String(dest.Name),
+// 			StorageClass: aws.String(storageClass),
+// 		},
+// 	}
+//
+// 	// First see if this bucket is replicated.
+// 	config, err := b.ReplicationConfig()
+// 	if err != nil {
+// 		// No replication config exists, we need to create a config
+// 		config = &s3.ReplicationConfiguration{
+// 			Role: aws.String(createReplicationRole(b.Name, dest.Name)),
+// 			Rules: []*s3.ReplicationRule{
+// 				rule,
+// 			},
+// 		}
+// 	} else {
+// 		// There is an existing configuration. Great lets use that and make sure our
+// 		// rule is in there.
+// 		found := false // Whether or not we found the rule in the existing rules
+// 		ruleName := ""
+// 		for i := range config.Rules {
+// 			ruleName = *config.Rules[i].ID
+// 			if ruleName == *rule.ID {
+// 				found = true
+// 				config.Rules[i] = rule
+// 			}
+// 		}
+//
+// 		if !found {
+// 			// This rule does not yet exist in our rules, so lets go ahead and add it
+// 			// to the rules
+// 			config.Rules = append(config.Rules, rule)
+// 		}
+// 	}
+//
+// 	// We have a config, go ahead and put the configuration
+// 	input := &s3.PutBucketReplicationInput{
+// 		Bucket: aws.String(b.Name),
+// 		ReplicationConfiguration: config,
+// 	}
+//
+// 	_, err = b.client.PutBucketReplication(input)
+// 	return err
+// }
+
+// ReplicationConfig returns the s3 Replication Configuration. If the bucket
+// does not have a ReplicationConfiguration, it will return an error.
+func (b *Bucket) ReplicationConfig() (*s3.ReplicationConfiguration, error) {
+	input := &s3.GetBucketReplicationInput{Bucket: aws.String(b.Name)}
+	resp, err := b.client.GetBucketReplication(input)
+	if err != nil {
+		return resp.ReplicationConfiguration, err
+	}
+	return resp.ReplicationConfiguration, nil
 }
 
 //
 // Package Internal Methods
 //
 
-// BucketExists returns whether or not the bucket with the given name exists
+// bucketExists returns whether or not the bucket with the given name exists
 func bucketExists(name string) bool {
 	_, err := getBucketRegion(name)
 	return err == nil
