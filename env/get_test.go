@@ -6,9 +6,14 @@ import (
 )
 
 func withEnvSet(key, value string, f func()) {
+	oldValue, exists := os.LookupEnv(key)
 	os.Setenv(key, value)
 	f()
-	os.Unsetenv(key)
+	if exists {
+		os.Setenv(key, oldValue)
+	} else {
+		os.Unsetenv(key)
+	}
 }
 
 func TestIsEmpty(t *testing.T) {
@@ -56,4 +61,29 @@ func TestGetOrPanicWhenExists(t *testing.T) {
 	withEnvSet("MY_VAL", "", func() {
 		GetOrPanic("MY_VAL")
 	})
+}
+
+func TestGetBoolean(t *testing.T) {
+	tests := map[string]bool{
+		"true":           true,
+		"TRUE":           true,
+		"yes":            true,
+		"YES":            true,
+		"1":              true,
+		"false":          false,
+		"FALSE":          false,
+		"no":             false,
+		"NO":             false,
+		"0":              false,
+		"something else": false,
+		"":               false,
+	}
+
+	for value, expected := range tests {
+		withEnvSet("MY_VAL", value, func() {
+			if GetBoolean("MY_VAL") != expected {
+				t.Errorf("Expected GetBoolean to return %v, but it returned %v", expected, GetBoolean("MY_VAL"))
+			}
+		})
+	}
 }

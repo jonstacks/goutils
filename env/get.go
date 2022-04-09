@@ -3,6 +3,7 @@ package env
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 // IsEmpty returns true if either the environment variable does not exist, or
@@ -29,4 +30,11 @@ func GetDefault(key, deflt string) string {
 		return val
 	}
 	return deflt
+}
+
+// GetBoolean returns true if the environment variable is set to "true", "yes", or "1"
+// regardless of case.
+func GetBoolean(key string) bool {
+	val := strings.ToLower(os.Getenv(key))
+	return val == "true" || val == "yes" || val == "1"
 }
